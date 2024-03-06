@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<body>
+  <canvas id="main-canvas"></canvas>
+  <select id="debug-buff-select">
+    <option value="armor">Armor</option>
+    <option value="boost">Boost</option>
+    <option value="bomb">Bomb</option>
+    <option value="lightning">Lightning</option>
+  </select>
+  <button id="force">Force Buff</button>
+  <button id="debug-canvas-render">Create Canvas</button>
+</body>
+<footer>
+  <script>
+    var drawGrid = function (ctx, w, h, step) {
+      ctx.beginPath();
+      for (var x = 0; x <= w; x += step) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+      }
+      // set the color of the line
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 1;
+      // the stroke will actually paint the current path
+      ctx.stroke();
+      // for the sake of the example 2nd path
+      ctx.beginPath();
+      for (var y = 0; y <= h; y += step) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+      }
+      // set the color of the line
+      ctx.strokeStyle = "black";
+      // just for fun
+      ctx.lineWidth = 1;
+      // for your original question - you need to stroke only once
+      ctx.stroke();
+    };
+    const canvas = document.getElementById("main-canvas");
+    const ctx = canvas.getContext("2d");
+    const force_button = document.getElementById("force");
+    const buff_selector = document.getElementById("debug-buff-select");
+    force_button.onclick = (e) => {
+      websocket.send(
+        JSON.stringify({
+          type: "force",
+          value: buff_selector.value,
+        })
+      );
+    };
+    canvas.onmousedown = (e) => {
+      var update = {
+        type: "click",
+        x: Math.floor(e.offsetX / (ctx.canvas.width / 10)),
+        y: Math.floor(e.offsetY / (ctx.canvas.width / 10)),
+      };
+      console.log(update);
+      websocket.send(JSON.stringify(update));
+    };
+    ctx.canvas.height = ctx.canvas.width;
+    const websocket = new WebSocket("ws://localhost:8000/ws");
+    const generate_canvas_button = document.getElementById(
+      "debug-canvas-render"
+    );
+    generate_canvas_button.onclick = () => {
+      websocket.send(JSON.stringify({ type: "create_test_board" }));
+    };
+    drawGrid(ctx, ctx.canvas.width, ctx.canvas.height, ctx.canvas.idth / 10);
+    websocket.onopen = (e) => {
+      console.log("HELLO SERVER");
+    };
+    websocket.onmessage = function (message) {
+      const message_json = JSON.parse(message.data);
+      if (message_json.type === "update") {
+        console.log("Update recieved");
+        for (var y = 0; y < message_json.data.length; y++) {
+          for (var x = 0; x < message_json.data[y].length; x++) {
+            if (message_json.data[y][x].player === 0) {
+              ctx.fillStyle = "darkblue";
+            } else if (message_json.data[y][x].player === 1) {
+              ctx.fillStyle = "darkred";
+            } else if (message_json.data[y][x].player === null) {
+              ctx.fillStyle = "white";
+            }
+            ctx.fillRect(x * 30, y * 30, 30, 30);
+
+            if (message_json.data[y][x].armor === true) {
+              ctx.fillStyle = "orange";
+              ctx.fillText("A", x * 30 + 10, y * 30 + 10);
+            }
+
+            drawGrid(
+              ctx,
+              ctx.canvas.width,
+              ctx.canvas.width,
+              ctx.canvas.width / message_json.data[y].length
+            );
+          }
+        }
+      }
+    };
+  </script>
+</footer>
